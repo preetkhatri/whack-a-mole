@@ -21,7 +21,8 @@ class TrackingConfig:
     # Slower blend when tracking resumes after a gap (prevents jumps).
     recovery_smoothing_factor: float = 0.18
 
-    # Frames cursor must stay inside hit radius before a whack registers.
+    # Frames the cursor must stay inside the hit circle before a stationary
+    # whack registers.  Fast swipes bypass this via swept-path detection.
     stable_hit_frames: int = 2
 
     # MediaPipe Hand Landmarker thresholds (Tasks API).

@@ -78,12 +78,18 @@ class SpeedMenu:
             )
         return buttons
 
-    def handle_event(self, event: pygame.event.Event) -> GameSpeed | None:
+    def handle_event(
+        self,
+        event: pygame.event.Event,
+        mouse_pos: tuple[int, int] | None = None,
+    ) -> GameSpeed | None:
         """Return the chosen speed when a button is clicked."""
         if event.type == pygame.MOUSEMOTION:
-            self._hover_index = self._index_at(event.pos)
+            pos = mouse_pos if mouse_pos is not None else event.pos
+            self._hover_index = self._index_at(pos)
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            index = self._index_at(event.pos)
+            pos = mouse_pos if mouse_pos is not None else event.pos
+            index = self._index_at(pos)
             if index is not None:
                 return self.buttons[index].speed
         return None

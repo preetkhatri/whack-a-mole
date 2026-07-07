@@ -10,12 +10,17 @@ IMAGES_DIR = ASSETS_DIR / "images"
 MOLE_FRAMES_DIR = IMAGES_DIR / "mole"
 SOUNDS_DIR = ASSETS_DIR / "sounds"
 
-# Window dimensions (desktop window)
-SCREEN_WIDTH = 1280
-SCREEN_HEIGHT = 720
+# Fixed design resolution — all gameplay, tracking, and UI layout use this space.
+DESIGN_WIDTH = 1280
+DESIGN_HEIGHT = 720
+SCREEN_WIDTH = DESIGN_WIDTH
+SCREEN_HEIGHT = DESIGN_HEIGHT
 
-# Windowed desktop mode
-USE_FULLSCREEN = False
+# Launch in fullscreen; F11 toggles windowed mode at the design resolution.
+USE_FULLSCREEN = True
+
+# Fill colour for letterbox/pillarbox bars when the display aspect ratio differs.
+LETTERBOX_COLOR = (0, 0, 0)
 
 # Target frame rate for the game loop
 TARGET_FPS = 60

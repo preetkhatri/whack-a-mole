@@ -11,6 +11,7 @@ import pygame
 
 import config
 from game.animations import ease_in_cubic, ease_out_back
+from game.collision import point_in_circle, point_or_segment_hits_circle
 from game.tracking.tracking_config import tracking_config
 from game.visual_config import MOLE_HOVER_BOUNCE, MOLE_HOVER_GLOW_RADIUS, MOLE_SQUASH_MS, MOLE_WHACK_SINK_MS
 
@@ -147,13 +148,31 @@ class Mole:
         self.animation_timer_ms = 0
         self._is_hovered = False
 
+    @property
+    def hit_radius(self) -> float:
+        """Invisible whack radius — slightly larger than the visible mole."""
+        return config.MOLE_RADIUS * tracking_config.hit_radius_multiplier
+
     def contains_point(self, x: int, y: int) -> bool:
         if not self.is_hittable:
             return False
-        dx = x - self.display_pos[0]
-        dy = y - self.display_pos[1]
-        radius = config.MOLE_RADIUS * tracking_config.hit_radius_multiplier
-        return (dx * dx + dy * dy) <= (radius * radius)
+        cx, cy = self.display_pos
+        return point_in_circle(x, y, cx, cy, self.hit_radius)
+
+    def intersects_motion_path(
+        self,
+        current: tuple[int, int],
+        previous: tuple[int, int] | None,
+    ) -> bool:
+        """True when the cursor point or its path since last frame hits the mole."""
+        if not self.is_hittable:
+            return False
+        return point_or_segment_hits_circle(
+            (float(current[0]), float(current[1])),
+            (float(previous[0]), float(previous[1])) if previous is not None else None,
+            (float(self.display_pos[0]), float(self.display_pos[1])),
+            self.hit_radius,
+        )
 
     def draw_holes(self, surface: pygame.Surface) -> None:
         for x, y in self.positions:

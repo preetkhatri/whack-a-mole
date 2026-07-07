@@ -127,7 +127,7 @@ def draw_game_over(
     score_line = fonts["score"].render(str(score), True, config.UI_COLOR_SCORE)
     label = fonts["label"].render("FINAL SCORE", True, config.UI_COLOR_LABEL)
     hint = fonts["body"].render("Press R to play again", True, (220, 220, 220))
-    quit_hint = fonts["small"].render("ESC to quit", True, (180, 180, 180))
+    quit_hint = fonts["small"].render("ESC: menu / exit fullscreen", True, (180, 180, 180))
 
     menu_btn_w, menu_btn_h = 320, 56
     menu_btn = pygame.Rect(0, 0, menu_btn_w, menu_btn_h)

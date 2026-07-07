@@ -106,7 +106,8 @@ class GameManager:
             self.audio.play_pop()
             self._pop_played_for_rise = True
 
-        if fingertip and self.mole.contains_point(*fingertip):
+        # fingertip is pre-validated by HitGate (point + swept collision).
+        if fingertip is not None:
             self._register_whack()
 
     def _update_countdown(self, dt_ms: int) -> None:

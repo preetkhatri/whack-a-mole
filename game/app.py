@@ -8,6 +8,7 @@ import config
 from game.assets_loader import assets_ready, load_background, load_hole_sprite, load_mole_frames
 from game.audio import AudioManager
 from game.background import draw_background, set_background
+from game.display import DisplayManager
 from game.effects import EffectsManager
 from game.feel import GameFeel
 from game.game_manager import GamePhase, GameManager
@@ -35,10 +36,9 @@ class GameApp:
         pygame.init()
         self._ensure_assets()
 
-        flags = pygame.FULLSCREEN if config.USE_FULLSCREEN else 0
-        self.screen = pygame.display.set_mode((config.SCREEN_WIDTH, config.SCREEN_HEIGHT), flags)
-        pygame.display.set_caption(config.WINDOW_TITLE)
-        self.game_surface = pygame.Surface((config.SCREEN_WIDTH, config.SCREEN_HEIGHT))
+        self.display = DisplayManager(fullscreen=config.USE_FULLSCREEN)
+        self.screen = self.display.screen
+        self.game_surface = pygame.Surface(self.display.design_size)
         self.clock = pygame.time.Clock()
         self.fonts = load_ui_fonts()
         self.running = False
@@ -99,22 +99,40 @@ class GameApp:
         self.feel.reset()
         self.cursor = MagicCursor()
 
+    def _design_mouse_pos(self, event: pygame.event.Event) -> tuple[int, int]:
+        """Convert a pygame mouse event position to design-space coordinates."""
+        return self.display.screen_to_design(event.pos)
+
     def handle_events(self) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
                 continue
 
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+                self.display.toggle_fullscreen()
+                self.screen = self.display.screen
+                continue
+
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                if self.display.fullscreen:
+                    self.display.set_windowed()
+                    self.screen = self.display.screen
+                elif not self.in_menu:
+                    self._return_to_menu()
+                else:
+                    self.running = False
+                continue
+
             if self.in_menu:
-                chosen = self.menu.handle_event(event)
-                if chosen is not None:
-                    self._start_speed(chosen)
+                if event.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN):
+                    chosen = self.menu.handle_event(event, self._design_mouse_pos(event))
+                    if chosen is not None:
+                        self._start_speed(chosen)
                 continue
 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    self.running = False
-                elif event.key == pygame.K_r and self.game.phase == GamePhase.GAME_OVER:
+                if event.key == pygame.K_r and self.game.phase == GamePhase.GAME_OVER:
                     self.game.begin_round()
                     self.input_tracker.hit_gate.reset()
                     self.effects.reset()
@@ -130,7 +148,8 @@ class GameApp:
                 and self._menu_back_rect is not None
             ):
                 ox, oy = self.feel.get_offset()
-                if self._menu_back_rect.collidepoint(event.pos[0] - ox, event.pos[1] - oy):
+                design_pos = self._design_mouse_pos(event)
+                if self._menu_back_rect.collidepoint(design_pos[0] - ox, design_pos[1] - oy):
                     self._return_to_menu()
 
     def _update_hover(self) -> None:
@@ -154,8 +173,7 @@ class GameApp:
         draw_background(self.game_surface)
         self.menu.draw(self.game_surface)
         draw_fps(self.game_surface, self.fonts["small"], fps)
-        self.screen.blit(self.game_surface, (0, 0))
-        pygame.display.flip()
+        self.display.present(self.game_surface)
 
     def render(self, fps: float) -> None:
         self.game_surface.fill((0, 0, 0))
@@ -191,13 +209,11 @@ class GameApp:
         if self.game.phase == GamePhase.GAME_OVER:
             ox, oy = self.feel.get_offset()
             self._menu_back_rect = draw_game_over(self.game_surface, self.fonts, self.game.score)
-            self.screen.blit(self.game_surface, (ox, oy))
         else:
             ox, oy = self.feel.get_offset()
             self._menu_back_rect = None
-            self.screen.blit(self.game_surface, (ox, oy))
 
-        pygame.display.flip()
+        self.display.present(self.game_surface, (ox, oy))
 
     def run(self) -> None:
         self.running = True

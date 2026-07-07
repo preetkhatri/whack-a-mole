@@ -14,6 +14,8 @@ import config
 from game.assets_loader import assets_ready, load_mole_frames
 from game.game_speed import GameSpeed
 from game.mole import Mole, MoleState, build_mole_grid
+from game.collision import point_in_circle, segment_intersects_circle
+from game.tracking.hit_gate import HitGate
 from game.tracking.input_tracker import InputTracker
 from game.visual_config import MOLE_SQUASH_MS, MOLE_WHACK_SINK_MS
 
@@ -21,6 +23,43 @@ from game.visual_config import MOLE_SQUASH_MS, MOLE_WHACK_SINK_MS
 def test_grid() -> None:
     positions = build_mole_grid()
     assert len(positions) == 9
+
+
+def test_collision_geometry() -> None:
+    assert point_in_circle(0, 0, 0, 0, 10)
+    assert not point_in_circle(11, 0, 0, 0, 10)
+
+    # Segment passes through circle centre; endpoints are outside.
+    assert segment_intersects_circle(-50, 0, 50, 0, 0, 0, 10)
+    assert not segment_intersects_circle(-50, 0, 50, 0, 0, 0, 5)
+    # Parallel segment misses.
+    assert not segment_intersects_circle(-50, 30, 50, 30, 0, 0, 10)
+
+
+def _raise_mole(mole: Mole) -> None:
+    mole.update(1000)
+    mole.update(config.MOLE_RISE_MS)
+    assert mole.state == MoleState.UP
+
+
+def test_swept_hit_detection() -> None:
+    mole = Mole()
+    _raise_mole(mole)
+    cx, cy = mole.display_pos
+    offset = int(mole.hit_radius + 80)
+
+    assert not mole.intersects_motion_path((cx - offset, cy), (cx + offset, cy))
+
+    gate = HitGate()
+    start = (cx - offset, cy)
+    end = (cx + offset, cy)
+    assert gate.filter(start, mole) is None
+    assert gate.filter(end, mole) == end
+
+    gate.reset()
+    _raise_mole(mole)
+    assert gate.filter(mole.display_pos, mole) is None
+    assert gate.filter(mole.display_pos, mole) == mole.display_pos
 
 
 def test_mole_lifecycle() -> None:
@@ -80,6 +119,8 @@ def test_app_boot() -> None:
 if __name__ == "__main__":
     pygame.init()
     test_grid()
+    test_collision_geometry()
+    test_swept_hit_detection()
     test_mole_lifecycle()
     test_assets()
     test_camera()
