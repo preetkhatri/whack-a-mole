@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 import urllib.request
 from dataclasses import dataclass
 
@@ -60,7 +61,9 @@ class HandTrackingSession:
 
     def read(self) -> HandFrame | None:
         """Return the first detected hand, or None."""
+        t0 = time.perf_counter()
         success, frame = self._cap.read()
+        t_cap = (time.perf_counter() - t0) * 1000
         if not success:
             return None
 
@@ -68,6 +71,10 @@ class HandTrackingSession:
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
         self._timestamp_ms += 33
         results = self._landmarker.detect_for_video(mp_image, self._timestamp_ms)
+        t_mp = (time.perf_counter() - t0) * 1000 - t_cap
+
+        if config.DEBUG_LOOP_TIMING and (t_cap > 20 or t_mp > 20):
+            print(f"  camera={t_cap:.1f}ms mediapipe={t_mp:.1f}ms")
 
         if not results.hand_landmarks:
             return None

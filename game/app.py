@@ -1,5 +1,7 @@
 """Main Pygame application: window setup, event handling, and game loop."""
 
+import time
+
 import pygame
 
 import config
@@ -208,26 +210,49 @@ class GameApp:
                 self._render_menu(self.clock.get_fps())
                 continue
 
+            t_frame = time.perf_counter()
+
+            t0 = time.perf_counter()
             sample = self.input_tracker.poll()
+            t_poll = (time.perf_counter() - t0) * 1000
+
             self._last_sample = sample
             self.cursor.update(sample.cursor, dt_ms)
 
             stable_hit = self.input_tracker.stable_hit_point(sample, self.game.mole)
 
+            t0 = time.perf_counter()
             if not self.feel.is_frozen():
                 self.game.update(dt_ms, stable_hit)
                 self._check_smoke_on_sink()
 
             self._update_hover()
 
-            if self.game.pending_whack is not None:
+            had_pending_whack = self.game.pending_whack is not None
+            if had_pending_whack:
                 event = self.game.pending_whack
+                self.game.pending_whack = None
                 self.effects.on_whack(event.x, event.y, event.combo)
                 self.feel.trigger_hit()
+            t_game = (time.perf_counter() - t0) * 1000
 
             self.feel.update(dt_ms)
             self.effects.update(dt_ms)
+
+            t0 = time.perf_counter()
             self.render(self.clock.get_fps())
+            t_render = (time.perf_counter() - t0) * 1000
+
+            if config.DEBUG_LOOP_TIMING:
+                t_total = (time.perf_counter() - t_frame) * 1000
+                if had_pending_whack or t_total > 50:
+                    print(
+                        f"[{time.time():.3f}] dt={dt_ms}ms frozen={self.feel.is_frozen()} "
+                        f"whack={had_pending_whack} "
+                        f"poll={t_poll:.1f}ms game={t_game:.1f}ms render={t_render:.1f}ms "
+                        f"total={t_total:.1f}ms particles={len(self.effects.particles)} "
+                        f"cursor={sample.cursor}"
+                    )
 
         self.input_tracker.release()
         pygame.quit()

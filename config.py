@@ -29,6 +29,8 @@ BACKGROUND_COLOR = (86, 180, 255)
 # --- Cursor (magic wand replaces debug dot) ---
 SHOW_FINGERTIP_DEBUG = False
 SHOW_FPS_DEBUG = False
+# Temporary: print per-stage loop timings (disable after profiling).
+DEBUG_LOOP_TIMING = True
 
 # --- Mole grid (3x3) — gameplay unchanged ---
 MOLE_GRID_COLS = 3
