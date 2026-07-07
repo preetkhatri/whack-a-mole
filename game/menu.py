@@ -1,4 +1,4 @@
-"""Game mode selection menu."""
+"""Game speed selection menu."""
 
 from __future__ import annotations
 
@@ -7,14 +7,14 @@ from dataclasses import dataclass
 import pygame
 
 import config
-from game.control_mode import ControlMode
+from game.game_speed import GameSpeed
 
 
 @dataclass
-class ModeButton:
-    """One selectable play mode on the start menu."""
+class SpeedButton:
+    """One selectable speed on the start menu."""
 
-    mode: ControlMode
+    speed: GameSpeed
     rect: pygame.Rect
     emoji: str
     title: str
@@ -22,51 +22,70 @@ class ModeButton:
     accent: tuple[int, int, int]
 
 
-class ModeMenu:
-    """Colorful arcade-style menu shown before gameplay begins."""
+class SpeedMenu:
+    """Colorful arcade-style speed picker shown before gameplay begins."""
 
-    TITLE = "Choose Your Play Mode"
+    TITLE = "Choose Game Speed"
 
     def __init__(self, fonts: dict[str, pygame.font.Font]) -> None:
         self.fonts = fonts
         self.buttons = self._build_buttons()
         self._hover_index: int | None = None
 
-    def _build_buttons(self) -> list[ModeButton]:
-        cx = config.SCREEN_WIDTH // 2
-        cy = config.SCREEN_HEIGHT // 2 + 30
-        w, h = 420, 220
-        gap = 48
-        left = cx - w - gap // 2
-        right = cx + gap // 2
+    def _build_buttons(self) -> list[SpeedButton]:
+        w, h = 340, 210
+        gap = 28
+        total_width = w * 3 + gap * 2
+        start_x = (config.SCREEN_WIDTH - total_width) // 2
+        y = config.SCREEN_HEIGHT // 2 - h // 2 + 20
 
-        return [
-            ModeButton(
-                mode=ControlMode.FINGER,
-                rect=pygame.Rect(left, cy - h // 2, w, h),
-                emoji="🎯",
-                title="Finger Mode",
-                subtitle="Fast and precise",
-                accent=(255, 120, 90),
+        specs = [
+            (
+                GameSpeed.FAST,
+                "⚡",
+                "Fast Mode",
+                "Moles disappear after 0.5 seconds if not hit.",
+                (255, 120, 90),
             ),
-            ModeButton(
-                mode=ControlMode.PALM,
-                rect=pygame.Rect(right, cy - h // 2, w, h),
-                emoji="✋",
-                title="Palm Mode",
-                subtitle="Easy for younger kids",
-                accent=(120, 200, 255),
+            (
+                GameSpeed.NORMAL,
+                "🎯",
+                "Normal Mode",
+                "Balanced gameplay.",
+                (120, 200, 255),
+            ),
+            (
+                GameSpeed.SLOW,
+                "🐢",
+                "Slow Mode",
+                "Moles remain for 2 seconds if not hit.",
+                (140, 220, 140),
             ),
         ]
 
-    def handle_event(self, event: pygame.event.Event) -> ControlMode | None:
-        """Return the chosen mode when a button is clicked."""
+        buttons: list[SpeedButton] = []
+        for index, (speed, emoji, title, subtitle, accent) in enumerate(specs):
+            x = start_x + index * (w + gap)
+            buttons.append(
+                SpeedButton(
+                    speed=speed,
+                    rect=pygame.Rect(x, y, w, h),
+                    emoji=emoji,
+                    title=title,
+                    subtitle=subtitle,
+                    accent=accent,
+                )
+            )
+        return buttons
+
+    def handle_event(self, event: pygame.event.Event) -> GameSpeed | None:
+        """Return the chosen speed when a button is clicked."""
         if event.type == pygame.MOUSEMOTION:
             self._hover_index = self._index_at(event.pos)
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             index = self._index_at(event.pos)
             if index is not None:
-                return self.buttons[index].mode
+                return self.buttons[index].speed
         return None
 
     def draw(self, surface: pygame.Surface) -> None:
@@ -83,8 +102,7 @@ class ModeMenu:
         surface.blit(subtitle, subtitle.get_rect(center=(config.SCREEN_WIDTH // 2, 175)))
 
         for index, button in enumerate(self.buttons):
-            hovered = index == self._hover_index
-            self._draw_button(surface, button, hovered)
+            self._draw_button(surface, button, index == self._hover_index)
 
     def _index_at(self, pos: tuple[int, int]) -> int | None:
         for index, button in enumerate(self.buttons):
@@ -97,16 +115,14 @@ class ModeMenu:
         overlay.fill((20, 10, 50, 140))
         surface.blit(overlay, (0, 0))
 
-        # Decorative bunting dots
         colors = [(255, 100, 100), (255, 220, 80), (100, 200, 255), (180, 255, 140)]
         for i, color in enumerate(colors * 8):
             x = 80 + i * 150
             pygame.draw.circle(surface, color, (x, 55), 14)
             pygame.draw.rect(surface, (255, 255, 255), (x - 2, 20, 4, 35))
 
-    def _draw_button(self, surface: pygame.Surface, button: ModeButton, hovered: bool) -> None:
+    def _draw_button(self, surface: pygame.Surface, button: SpeedButton, hovered: bool) -> None:
         rect = button.rect
-        scale = 1.04 if hovered else 1.0
         if hovered:
             rect = rect.inflate(int(rect.width * 0.04), int(rect.height * 0.04))
             rect.center = button.rect.center
@@ -120,14 +136,35 @@ class ModeMenu:
 
         emoji_font = pygame.font.Font(None, 72)
         emoji = emoji_font.render(button.emoji, True, (255, 255, 255))
-        surface.blit(emoji, emoji.get_rect(center=(rect.centerx, rect.top + 55)))
+        surface.blit(emoji, emoji.get_rect(center=(rect.centerx, rect.top + 50)))
 
         title = self.fonts["body"].render(button.title, True, (255, 255, 255))
-        surface.blit(title, title.get_rect(center=(rect.centerx, rect.centery + 10)))
+        surface.blit(title, title.get_rect(center=(rect.centerx, rect.centery + 5)))
 
-        desc = self.fonts["small"].render(button.subtitle, True, (240, 240, 240))
-        surface.blit(desc, desc.get_rect(center=(rect.centerx, rect.bottom - 42)))
+        desc = self._wrap_subtitle(button.subtitle, rect.width - 40)
+        desc_y = rect.centery + 38
+        for line in desc:
+            rendered = self.fonts["small"].render(line, True, (240, 240, 240))
+            surface.blit(rendered, rendered.get_rect(center=(rect.centerx, desc_y)))
+            desc_y += rendered.get_height() + 4
 
         if hovered:
             hint = self.fonts["small"].render("Click to play!", True, (255, 255, 200))
             surface.blit(hint, hint.get_rect(center=(rect.centerx, rect.bottom - 16)))
+
+    def _wrap_subtitle(self, text: str, max_width: int) -> list[str]:
+        """Split subtitle text to fit inside a button."""
+        words = text.split()
+        lines: list[str] = []
+        current = ""
+        for word in words:
+            trial = f"{current} {word}".strip()
+            if self.fonts["small"].render(trial, True, (255, 255, 255)).get_width() <= max_width:
+                current = trial
+            else:
+                if current:
+                    lines.append(current)
+                current = word
+        if current:
+            lines.append(current)
+        return lines or [text]

@@ -1,11 +1,11 @@
-"""Facade that reads the active control mode and returns a ControlSample."""
+"""Facade: finger tracking → EMA smoothing → stable control sample."""
 
 from __future__ import annotations
 
-from game.control_mode import ControlMode
 from game.tracking.control_sample import ControlSample
+from game.tracking.cursor_smoother import CursorSmoother
 from game.tracking.finger_tracker import FingerTracker
-from game.tracking.palm_tracker import PalmTracker
+from game.tracking.hit_gate import HitGate
 from game.tracking.session import HandTrackingSession
 
 
@@ -15,15 +15,26 @@ class InputTracker:
     def __init__(self) -> None:
         self._session = HandTrackingSession()
         self._finger = FingerTracker(self._session)
-        self._palm = PalmTracker(self._session)
-        self.current_control_mode = ControlMode.FINGER
+        self._smoother = CursorSmoother()
+        self.hit_gate = HitGate()
 
     def poll(self) -> ControlSample:
-        """Process the webcam once and return cursor/hit data for the active mode."""
+        """Read camera, smooth cursor, and return hit candidate + status."""
         frame = self._session.read()
-        if self.current_control_mode == ControlMode.PALM:
-            return self._palm.sample(frame)
-        return self._finger.sample(frame)
+        raw = self._finger.sample(frame)
+        return self._smoother.process(raw.cursor, raw.hit_point)
+
+    def stable_hit_point(
+        self,
+        sample: ControlSample,
+        mole,
+    ) -> tuple[int, int] | None:
+        """Apply consecutive-frame gating before gameplay collision."""
+        return self.hit_gate.filter(sample.hit_point, mole)
+
+    def reset(self) -> None:
+        self._smoother.reset()
+        self.hit_gate.reset()
 
     def release(self) -> None:
         self._session.release()

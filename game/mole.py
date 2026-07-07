@@ -11,6 +11,7 @@ import pygame
 
 import config
 from game.animations import ease_in_cubic, ease_out_back
+from game.tracking.tracking_config import tracking_config
 from game.visual_config import MOLE_HOVER_BOUNCE, MOLE_HOVER_GLOW_RADIUS, MOLE_SQUASH_MS, MOLE_WHACK_SINK_MS
 
 
@@ -43,7 +44,7 @@ def build_mole_grid() -> list[tuple[int, int]]:
 class Mole:
     """A single mole that pops up from one of nine holes."""
 
-    def __init__(self, positions: list[tuple[int, int]] | None = None) -> None:
+    def __init__(self, positions: list[tuple[int, int]] | None = None, mole_timeout_duration_ms: int | None = None) -> None:
         self.positions = positions or build_mole_grid()
         self.slot_index = 0
         self.base_x, self.base_y = self.positions[0]
@@ -51,6 +52,11 @@ class Mole:
         self.spawn_timer_ms = 0
         self.animation_timer_ms = 0
         self.visible_timer_ms = 0
+        self.mole_timeout_duration_ms = (
+            mole_timeout_duration_ms
+            if mole_timeout_duration_ms is not None
+            else config.MOLE_VISIBLE_MS
+        )
         self.y_offset = 0.0
         self._active_sink_ms = config.MOLE_SINK_MS
         self._is_hovered = False
@@ -117,7 +123,7 @@ class Mole:
                 self.visible_timer_ms = 0
         elif self.state == MoleState.UP:
             self.visible_timer_ms += dt_ms
-            if self.visible_timer_ms >= config.MOLE_VISIBLE_MS:
+            if self.visible_timer_ms >= self.mole_timeout_duration_ms:
                 self.state = MoleState.SINKING
                 self.animation_timer_ms = 0
                 self._active_sink_ms = MOLE_WHACK_SINK_MS
@@ -146,7 +152,7 @@ class Mole:
             return False
         dx = x - self.display_pos[0]
         dy = y - self.display_pos[1]
-        radius = config.MOLE_RADIUS
+        radius = config.MOLE_RADIUS * tracking_config.hit_radius_multiplier
         return (dx * dx + dy * dy) <= (radius * radius)
 
     def draw_holes(self, surface: pygame.Surface) -> None:

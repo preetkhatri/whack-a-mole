@@ -9,6 +9,7 @@ import cv2
 import mediapipe as mp
 
 import config
+from game.tracking.tracking_config import tracking_config
 
 BaseOptions = mp.tasks.BaseOptions
 HandLandmarker = mp.tasks.vision.HandLandmarker
@@ -45,17 +46,20 @@ class HandTrackingSession:
         self.screen_height = screen_height
         self._cap = cv2.VideoCapture(camera_index)
         self._timestamp_ms = 0
+
+        cfg = tracking_config
         options = HandLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=str(config.HAND_LANDMARKER_MODEL)),
             running_mode=VisionRunningMode.VIDEO,
-            num_hands=1,
-            min_hand_detection_confidence=0.7,
-            min_hand_presence_confidence=0.5,
-            min_tracking_confidence=0.5,
+            num_hands=cfg.max_num_hands,
+            min_hand_detection_confidence=cfg.min_detection_confidence,
+            min_hand_presence_confidence=cfg.min_presence_confidence,
+            min_tracking_confidence=cfg.min_tracking_confidence,
         )
         self._landmarker = HandLandmarker.create_from_options(options)
 
     def read(self) -> HandFrame | None:
+        """Return the first detected hand, or None."""
         success, frame = self._cap.read()
         if not success:
             return None

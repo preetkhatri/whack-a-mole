@@ -8,6 +8,7 @@ from enum import Enum, auto
 
 import config
 from game.audio import AudioManager
+from game.game_speed import GameSpeed, mole_timeout_duration_ms
 from game.mole import Mole, MoleState
 
 
@@ -45,9 +46,12 @@ class GameManager:
         self._last_whack_ms = 0
         self._elapsed_ms = 0
         self.pending_whack: WhackEvent | None = None
+        self.game_speed = GameSpeed.NORMAL
 
-    def begin_round(self) -> None:
-        """Start countdown and gameplay after the player picks a mode."""
+    def begin_round(self, speed: GameSpeed | None = None) -> None:
+        """Start countdown and gameplay after the player picks a speed."""
+        if speed is not None:
+            self.game_speed = speed
         self.reset()
 
     @property
@@ -61,7 +65,7 @@ class GameManager:
 
     def reset(self) -> None:
         """Start a fresh 60-second round."""
-        self.mole = Mole()
+        self.mole = Mole(mole_timeout_duration_ms=mole_timeout_duration_ms(self.game_speed))
         self.score = 0
         self.combo = 0
         self.time_remaining_ms = config.GAME_DURATION_SECONDS * 1000

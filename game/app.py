@@ -6,12 +6,12 @@ import config
 from game.assets_loader import assets_ready, load_background, load_hole_sprite, load_mole_frames
 from game.audio import AudioManager
 from game.background import draw_background, set_background
-from game.control_mode import ControlMode
 from game.effects import EffectsManager
 from game.feel import GameFeel
 from game.game_manager import GamePhase, GameManager
+from game.game_speed import GameSpeed
 from game.magic_cursor import MagicCursor
-from game.menu import ModeMenu
+from game.menu import SpeedMenu
 from game.mole import MoleState
 from game.hud import (
     draw_arcade_hud,
@@ -21,6 +21,7 @@ from game.hud import (
     draw_title_banner,
     load_ui_fonts,
 )
+from game.tracking.debug_indicator import draw_tracking_indicator
 from game.tracking.input_tracker import InputTracker
 from tools.generate_assets import generate_all_assets
 
@@ -40,7 +41,7 @@ class GameApp:
         self.fonts = load_ui_fonts()
         self.running = False
         self.in_menu = True
-        self.current_control_mode: ControlMode | None = None
+        self.current_game_speed: GameSpeed | None = None
         self._last_sample = None
         self._prev_mole_state = MoleState.HIDDEN
         self._menu_back_rect: pygame.Rect | None = None
@@ -54,7 +55,7 @@ class GameApp:
         self.effects = EffectsManager()
         self.feel = GameFeel()
         self.cursor = MagicCursor()
-        self.menu = ModeMenu(self.fonts)
+        self.menu = SpeedMenu(self.fonts)
         self.game = GameManager(self.audio)
         self._apply_sprites_to_game()
 
@@ -73,24 +74,25 @@ class GameApp:
         if self._mole_frames and self._hole_sprite is not None:
             self.game.load_sprites(self._mole_frames, self._hole_sprite)
 
-    def _start_mode(self, mode: ControlMode) -> None:
-        """Apply the selected control mode and begin the round immediately."""
-        self.current_control_mode = mode
-        self.input_tracker.current_control_mode = mode
+    def _start_speed(self, speed: GameSpeed) -> None:
+        """Apply the selected speed and begin the round immediately."""
+        self.current_game_speed = speed
+        self.input_tracker.reset()
         self.in_menu = False
         self.effects.reset()
         self.feel.reset()
         self.cursor = MagicCursor()
-        self.game.begin_round()
+        self.game.begin_round(speed)
         self._apply_sprites_to_game()
         self._prev_mole_state = MoleState.HIDDEN
 
     def _return_to_menu(self) -> None:
-        """Show the mode selection screen again."""
+        """Show the speed selection screen again."""
         self.in_menu = True
-        self.current_control_mode = None
+        self.current_game_speed = None
         self._last_sample = None
         self._menu_back_rect = None
+        self.input_tracker.reset()
         self.effects.reset()
         self.feel.reset()
         self.cursor = MagicCursor()
@@ -104,7 +106,7 @@ class GameApp:
             if self.in_menu:
                 chosen = self.menu.handle_event(event)
                 if chosen is not None:
-                    self._start_mode(chosen)
+                    self._start_speed(chosen)
                 continue
 
             if event.type == pygame.KEYDOWN:
@@ -112,6 +114,7 @@ class GameApp:
                     self.running = False
                 elif event.key == pygame.K_r and self.game.phase == GamePhase.GAME_OVER:
                     self.game.begin_round()
+                    self.input_tracker.hit_gate.reset()
                     self.effects.reset()
                     self.feel.reset()
                     self.cursor = MagicCursor()
@@ -180,6 +183,9 @@ class GameApp:
 
         draw_fps(self.game_surface, self.fonts["small"], fps)
 
+        if self._last_sample is not None:
+            draw_tracking_indicator(self.game_surface, self._last_sample.status)
+
         if self.game.phase == GamePhase.GAME_OVER:
             ox, oy = self.feel.get_offset()
             self._menu_back_rect = draw_game_over(self.game_surface, self.fonts, self.game.score)
@@ -206,8 +212,10 @@ class GameApp:
             self._last_sample = sample
             self.cursor.update(sample.cursor, dt_ms)
 
+            stable_hit = self.input_tracker.stable_hit_point(sample, self.game.mole)
+
             if not self.feel.is_frozen():
-                self.game.update(dt_ms, sample.hit_point)
+                self.game.update(dt_ms, stable_hit)
                 self._check_smoke_on_sink()
 
             self._update_hover()

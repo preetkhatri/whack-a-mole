@@ -12,7 +12,7 @@ import pygame
 
 import config
 from game.assets_loader import assets_ready, load_mole_frames
-from game.control_mode import ControlMode
+from game.game_speed import GameSpeed
 from game.mole import Mole, MoleState, build_mole_grid
 from game.tracking.input_tracker import InputTracker
 from game.visual_config import MOLE_SQUASH_MS, MOLE_WHACK_SINK_MS
@@ -59,7 +59,7 @@ def test_app_boot() -> None:
 
     config.USE_FULLSCREEN = False
     app = GameApp()
-    app._start_mode(ControlMode.FINGER)
+    app._start_speed(GameSpeed.NORMAL)
     for _ in range(5):
         pygame.event.pump()
         dt = app.clock.tick(config.TARGET_FPS)
