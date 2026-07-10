@@ -56,6 +56,25 @@ HOLE_COLOR = (62, 39, 20)
 GAME_DURATION_SECONDS = 60
 COUNTDOWN_SECONDS = 3
 COMBO_WINDOW_MS = 2500
+SCORE_PER_WHACK = 10
+
+# Vice labels shown above each mole when it appears.
+VICE_NAMES = (
+    "Ego",
+    "Anger",
+    "Greed",
+    "Jealousy",
+    "Laziness",
+    "Pride",
+    "Envy",
+    "Attachment",
+    "Fear",
+    "Hatred",
+)
+
+# --- Branding ---
+GAME_TITLE = "Beat The Vices"
+GAME_TAGLINE = "Target your vices. Win your virtues."
 
 # --- Desktop UI typography ---
 UI_FONT_SCORE = 64

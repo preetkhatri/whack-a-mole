@@ -22,6 +22,34 @@ def load_ui_fonts() -> dict[str, pygame.font.Font]:
     }
 
 
+def draw_branding_header(
+    surface: pygame.Surface,
+    fonts: dict[str, pygame.font.Font],
+    *,
+    top_y: int | None = None,
+) -> int:
+    """Draw the game title and tagline; return the y-coordinate below the tagline."""
+    cx = config.SCREEN_WIDTH // 2
+    y = top_y if top_y is not None else config.UI_PADDING + 12
+
+    brand_title = fonts["title"].render(config.GAME_TITLE, True, (255, 245, 120))
+    brand_shadow = fonts["title"].render(config.GAME_TITLE, True, (60, 30, 90))
+    title_rect = brand_title.get_rect(midtop=(cx, y))
+    shadow_rect = brand_shadow.get_rect(midtop=(title_rect.centerx + 4, title_rect.top + 4))
+    surface.blit(brand_shadow, shadow_rect)
+    surface.blit(brand_title, title_rect)
+
+    y = title_rect.bottom + 10
+    tagline = fonts["body"].render(config.GAME_TAGLINE, True, (255, 255, 255))
+    tag_shadow = fonts["body"].render(config.GAME_TAGLINE, True, (80, 40, 120))
+    tag_rect = tagline.get_rect(midtop=(cx, y))
+    tag_shadow_rect = tag_shadow.get_rect(midtop=(tag_rect.centerx + 2, tag_rect.top + 2))
+    surface.blit(tag_shadow, tag_shadow_rect)
+    surface.blit(tagline, tag_rect)
+
+    return tag_rect.bottom
+
+
 def _draw_panel(
     surface: pygame.Surface,
     rect: pygame.Rect,
@@ -117,33 +145,102 @@ def draw_game_over(
     overlay.fill((0, 0, 0, 180))
     surface.blit(overlay, (0, 0))
 
-    card_w = int(config.SCREEN_WIDTH * 0.55)
-    card_h = int(config.SCREEN_HEIGHT * 0.55)
-    card = pygame.Rect(0, 0, card_w, card_h)
-    card.center = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2)
-    _draw_panel(surface, card, radius=36)
+    brand_bottom = draw_branding_header(surface, fonts)
 
     title = fonts["title"].render("Game Over!", True, (255, 220, 80))
-    score_line = fonts["score"].render(str(score), True, config.UI_COLOR_SCORE)
     label = fonts["label"].render("FINAL SCORE", True, config.UI_COLOR_LABEL)
+    score_line = fonts["score"].render(str(score), True, config.UI_COLOR_SCORE)
     hint = fonts["body"].render("Press R to play again", True, (220, 220, 220))
     quit_hint = fonts["small"].render("ESC: menu / exit fullscreen", True, (180, 180, 180))
+    menu_label = fonts["label"].render("Back to Menu", True, (255, 255, 255))
 
-    menu_btn_w, menu_btn_h = 320, 56
+    padding_x = 48
+    padding_y = 40
+    gaps = {
+        "title": 28,
+        "score_block": 12,
+        "actions": max(40, score_line.get_height() // 3 + 16),
+        "line": 16,
+        "button": 28,
+    }
+
+    menu_btn_w = max(320, menu_label.get_width() + 48)
+    menu_btn_h = max(56, menu_label.get_height() + 24)
+
+    def _stack_height(g: dict[str, int]) -> int:
+        return (
+            title.get_height()
+            + g["title"]
+            + label.get_height()
+            + g["score_block"]
+            + score_line.get_height()
+            + g["actions"]
+            + hint.get_height()
+            + g["line"]
+            + quit_hint.get_height()
+            + g["button"]
+            + menu_btn_h
+        )
+
+    max_card_h = int(config.SCREEN_HEIGHT * 0.90)
+    stack_h = _stack_height(gaps)
+    available_stack = max_card_h - padding_y * 2
+    if stack_h > available_stack:
+        scale = available_stack / stack_h
+        for key in gaps:
+            gaps[key] = max(8, int(gaps[key] * scale))
+        stack_h = _stack_height(gaps)
+
+    content_w = max(
+        title.get_width(),
+        label.get_width(),
+        score_line.get_width(),
+        hint.get_width(),
+        quit_hint.get_width(),
+        menu_btn_w,
+    )
+
+    card_w = min(content_w + padding_x * 2, int(config.SCREEN_WIDTH * 0.75))
+    card_h = stack_h + padding_y * 2
+    card = pygame.Rect(0, 0, card_w, card_h)
+    min_card_top = brand_bottom + 20
+    card.top = max(min_card_top, (config.SCREEN_HEIGHT - card_h) // 2)
+    if card.bottom > config.SCREEN_HEIGHT - config.UI_PADDING:
+        card.bottom = config.SCREEN_HEIGHT - config.UI_PADDING
+    card.top = max(min_card_top, card.top)
+    card.centerx = config.SCREEN_WIDTH // 2
+    _draw_panel(surface, card, radius=36)
+
+    cx = card.centerx
+    y = card.top + padding_y
+
+    title_rect = title.get_rect(midtop=(cx, y))
+    surface.blit(title, title_rect)
+    y = title_rect.bottom + gaps["title"]
+
+    label_rect = label.get_rect(midtop=(cx, y))
+    surface.blit(label, label_rect)
+    y = label_rect.bottom + gaps["score_block"]
+
+    score_rect = score_line.get_rect(midtop=(cx, y))
+    surface.blit(score_line, score_rect)
+    y = score_rect.bottom + gaps["actions"]
+
+    hint_rect = hint.get_rect(midtop=(cx, y))
+    surface.blit(hint, hint_rect)
+    y = hint_rect.bottom + gaps["line"]
+
+    quit_rect = quit_hint.get_rect(midtop=(cx, y))
+    surface.blit(quit_hint, quit_rect)
+    y = quit_rect.bottom + gaps["button"]
+
     menu_btn = pygame.Rect(0, 0, menu_btn_w, menu_btn_h)
-    menu_btn.center = (card.centerx, card.bottom - 55)
+    menu_btn.midtop = (cx, y)
     menu_panel = pygame.Surface((menu_btn_w, menu_btn_h), pygame.SRCALPHA)
     pygame.draw.rect(menu_panel, (255, 160, 80, 220), menu_panel.get_rect(), border_radius=16)
     pygame.draw.rect(menu_panel, (255, 255, 255), menu_panel.get_rect(), width=3, border_radius=16)
     surface.blit(menu_panel, menu_btn.topleft)
-    menu_label = fonts["label"].render("Back to Menu", True, (255, 255, 255))
     surface.blit(menu_label, menu_label.get_rect(center=menu_btn.center))
-
-    surface.blit(title, title.get_rect(center=(card.centerx, card.top + 90)))
-    surface.blit(label, label.get_rect(center=(card.centerx, card.centery - 30)))
-    surface.blit(score_line, score_line.get_rect(center=(card.centerx, card.centery + 70)))
-    surface.blit(hint, hint.get_rect(center=(card.centerx, card.bottom - 130)))
-    surface.blit(quit_hint, quit_hint.get_rect(center=(card.centerx, card.bottom - 100)))
 
     return menu_btn
 

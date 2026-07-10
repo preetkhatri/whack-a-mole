@@ -124,7 +124,7 @@ class GameManager:
                 self.phase = GamePhase.PLAYING
 
     def _register_whack(self) -> None:
-        """Score a hit — gameplay logic unchanged (+1 per whack)."""
+        """Score a hit — awards SCORE_PER_WHACK points per whack."""
         now = self._elapsed_ms
         if now - self._last_whack_ms <= config.COMBO_WINDOW_MS:
             self.combo += 1
@@ -132,7 +132,7 @@ class GameManager:
             self.combo = 1
         self._last_whack_ms = now
 
-        self.score += 1
+        self.score += config.SCORE_PER_WHACK
         self.audio.play_whack(self.combo)
         if self.combo >= 3:
             self.audio.play_combo()

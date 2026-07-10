@@ -8,6 +8,7 @@ import pygame
 
 import config
 from game.game_speed import GameSpeed
+from game.hud import draw_branding_header
 
 
 @dataclass
@@ -97,15 +98,20 @@ class SpeedMenu:
     def draw(self, surface: pygame.Surface) -> None:
         self._draw_backdrop(surface)
 
+        brand_bottom = draw_branding_header(surface, self.fonts)
+        button_top = min(button.rect.top for button in self.buttons)
+        choose_gap = 20
+        choose_y = brand_bottom + choose_gap
+
         title = self.fonts["title"].render(self.TITLE, True, (255, 245, 120))
         shadow = self.fonts["title"].render(self.TITLE, True, (60, 30, 90))
-        title_rect = title.get_rect(center=(config.SCREEN_WIDTH // 2, 120))
-        shadow_rect = shadow.get_rect(center=(title_rect.centerx + 4, title_rect.centery + 4))
+        max_bottom = button_top - 16
+        if choose_y + title.get_height() > max_bottom:
+            choose_y = max(brand_bottom + 8, max_bottom - title.get_height())
+        title_rect = title.get_rect(midtop=(config.SCREEN_WIDTH // 2, choose_y))
+        shadow_rect = shadow.get_rect(midtop=(title_rect.centerx + 4, title_rect.top + 4))
         surface.blit(shadow, shadow_rect)
         surface.blit(title, title_rect)
-
-        subtitle = self.fonts["body"].render("WHACK-A-MOLE CARNIVAL", True, (255, 255, 255))
-        surface.blit(subtitle, subtitle.get_rect(center=(config.SCREEN_WIDTH // 2, 175)))
 
         for index, button in enumerate(self.buttons):
             self._draw_button(surface, button, index == self._hover_index)

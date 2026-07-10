@@ -65,6 +65,9 @@ class Mole:
         self.mole_frames: list[pygame.Surface] = []
         self.hole_sprite: pygame.Surface | None = None
         self._hidden_travel = float(config.MOLE_RADIUS * 2)
+        self.vice_name: str | None = None
+        self._last_vice: str | None = None
+        self._vice_font_obj: pygame.font.Font | None = None
 
     def load_sprites(
         self,
@@ -193,11 +196,16 @@ class Mole:
             self._draw_hover_glow(surface, x, y)
 
         scale_x, scale_y = self._visual_scale()
+        sprite_half_h = config.MOLE_RADIUS
         if frame is not None:
             self._blit_scaled(surface, frame, x, y, scale_x, scale_y)
+            sprite_half_h = max(1, int(frame.get_height() * scale_y)) // 2
         else:
             rx, ry = int(config.MOLE_RADIUS * scale_x), int(config.MOLE_RADIUS * scale_y)
             pygame.draw.ellipse(surface, config.MOLE_COLOR, (x - rx, y - ry, rx * 2, ry * 2))
+            sprite_half_h = ry
+
+        self._draw_vice_label(surface, x, y, sprite_half_h)
 
     def _visual_scale(self) -> tuple[float, float]:
         if self.state == MoleState.SQUASH:
@@ -248,10 +256,50 @@ class Mole:
             return self.mole_frames[index]
         return self.mole_frames[0]
 
+    def _pick_vice(self) -> str:
+        """Pick a vice label, avoiding the previous one when possible."""
+        choices = [name for name in config.VICE_NAMES if name != self._last_vice]
+        if not choices:
+            choices = list(config.VICE_NAMES)
+        return random.choice(choices)
+
+    def _get_vice_font(self) -> pygame.font.Font:
+        if self._vice_font_obj is None:
+            # Slightly larger than UI_FONT_LABEL for TV / exhibition readability.
+            size = config.UI_FONT_LABEL + 6
+            self._vice_font_obj = pygame.font.SysFont("arial", size, bold=True)
+        return self._vice_font_obj
+
+    _VICE_OUTLINE_OFFSETS = (
+        (-1, -1), (-1, 0), (-1, 1),
+        (0, -1),           (0, 1),
+        (1, -1),  (1, 0),  (1, 1),
+    )
+
+    def _draw_vice_label(self, surface: pygame.Surface, x: int, y: int, sprite_half_h: int) -> None:
+        if self.vice_name is None:
+            return
+
+        font = self._get_vice_font()
+        gap = 8
+        anchor = (x, y - sprite_half_h - gap)
+        outline_color = (0, 0, 0)
+        text_color = (255, 255, 255)
+
+        for dx, dy in self._VICE_OUTLINE_OFFSETS:
+            outline = font.render(self.vice_name, True, outline_color)
+            outline_rect = outline.get_rect(midbottom=anchor)
+            surface.blit(outline, (outline_rect.x + dx, outline_rect.y + dy))
+
+        label = font.render(self.vice_name, True, text_color)
+        surface.blit(label, label.get_rect(midbottom=anchor))
+
     def _spawn_at_random_slot(self, exclude: int | None = None) -> None:
         choices = [index for index in range(len(self.positions)) if index != exclude]
         self.slot_index = random.choice(choices)
         self.base_x, self.base_y = self.positions[self.slot_index]
+        self.vice_name = self._pick_vice()
+        self._last_vice = self.vice_name
         self.state = MoleState.RISING
         self.animation_timer_ms = 0
         self.y_offset = self._hidden_travel
@@ -259,6 +307,7 @@ class Mole:
     def _finish_sink(self) -> None:
         previous_slot = self.slot_index
         self.state = MoleState.HIDDEN
+        self.vice_name = None
         self.spawn_timer_ms = 0
         self.y_offset = self._hidden_travel
         self._spawn_at_random_slot(exclude=previous_slot)

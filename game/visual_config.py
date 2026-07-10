@@ -17,7 +17,7 @@ HIT_STOP_MS = 40
 SCREEN_SHAKE_MS = 80
 SCREEN_SHAKE_MAGNITUDE = 4
 
-# Floating score text shown on whack (actual score still +1)
+# Floating score text shown on whack (matches SCORE_PER_WHACK in config.py)
 WHACK_POPUP_TEXT = "+10"
 
 # Particle budgets (keep 60 FPS)
