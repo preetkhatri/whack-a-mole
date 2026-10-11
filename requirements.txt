@@ -1,3 +1,5 @@
-pygame>=2.5.0
-mediapipe>=0.10.0
-opencv-python>=4.8.0
+# Install with: ./setup.sh
+# Needs Python 3.11–3.13 (3.12 preferred; see .python-version).
+pygame==2.6.1
+mediapipe==0.10.35
+opencv-python==4.14.0.94
