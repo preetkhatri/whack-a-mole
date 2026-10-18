@@ -12,6 +12,7 @@ import pygame
 import config
 from game.animations import ease_in_cubic, ease_out_back
 from game.collision import point_in_circle, point_or_segment_hits_circle
+from game.fonts import load_devanagari_font
 from game.tracking.tracking_config import tracking_config
 from game.visual_config import MOLE_HOVER_BOUNCE, MOLE_HOVER_GLOW_RADIUS, MOLE_SQUASH_MS, MOLE_WHACK_SINK_MS
 
@@ -265,9 +266,9 @@ class Mole:
 
     def _get_vice_font(self) -> pygame.font.Font:
         if self._vice_font_obj is None:
-            # Slightly larger than UI_FONT_LABEL for TV / exhibition readability.
-            size = config.UI_FONT_LABEL + 6
-            self._vice_font_obj = pygame.font.SysFont("arial", size, bold=True)
+            # Bundled Devanagari font — works offline on exhibition laptops.
+            size = config.UI_FONT_LABEL + 4
+            self._vice_font_obj = load_devanagari_font(size)
         return self._vice_font_obj
 
     _VICE_OUTLINE_OFFSETS = (
@@ -283,7 +284,8 @@ class Mole:
         font = self._get_vice_font()
         gap = 8
         anchor = (x, y - sprite_half_h - gap)
-        outline_color = (0, 0, 0)
+        # White fill + red outline.
+        outline_color = (255, 85, 85)
         text_color = (255, 255, 255)
 
         for dx, dy in self._VICE_OUTLINE_OFFSETS:

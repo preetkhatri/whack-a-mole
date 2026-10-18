@@ -135,6 +135,41 @@ def draw_title_banner(surface: pygame.Surface, fonts: dict[str, pygame.font.Font
     surface.blit(title, rect)
 
 
+def draw_pause_overlay(surface: pygame.Surface, fonts: dict[str, pygame.font.Font]) -> None:
+    """Dimmed PAUSED splash — Space resumes."""
+    overlay = pygame.Surface((config.SCREEN_WIDTH, config.SCREEN_HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 150))
+    surface.blit(overlay, (0, 0))
+
+    title = fonts["title"].render("PAUSED", True, (255, 245, 120))
+    shadow = fonts["title"].render("PAUSED", True, (40, 20, 80))
+    center = (config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2 - 20)
+    surface.blit(shadow, shadow.get_rect(center=(center[0] + 4, center[1] + 4)))
+    surface.blit(title, title.get_rect(center=center))
+
+    hint = fonts["body"].render("Space: resume   R: restart   Esc: menu", True, (230, 230, 240))
+    surface.blit(hint, hint.get_rect(center=(center[0], center[1] + 70)))
+
+
+def draw_in_game_back_button(
+    surface: pygame.Surface,
+    fonts: dict[str, pygame.font.Font],
+) -> pygame.Rect:
+    """Top-left Menu button during a round. Returns clickable rect."""
+    label = fonts["small"].render("Menu", True, (255, 255, 255))
+    pad_x, pad_y = 18, 10
+    btn = pygame.Rect(
+        config.UI_PADDING,
+        config.UI_PADDING,
+        label.get_width() + pad_x * 2,
+        label.get_height() + pad_y * 2,
+    )
+    pygame.draw.rect(surface, (40, 25, 70), btn, border_radius=10)
+    pygame.draw.rect(surface, config.UI_COLOR_PANEL_BORDER, btn, width=2, border_radius=10)
+    surface.blit(label, label.get_rect(center=btn.center))
+    return btn
+
+
 def draw_game_over(
     surface: pygame.Surface,
     fonts: dict[str, pygame.font.Font],

@@ -21,6 +21,8 @@ from game.hud import (
     draw_countdown_overlay,
     draw_fps,
     draw_game_over,
+    draw_in_game_back_button,
+    draw_pause_overlay,
     draw_title_banner,
     load_ui_fonts,
 )
@@ -43,10 +45,12 @@ class GameApp:
         self.fonts = load_ui_fonts()
         self.running = False
         self.in_menu = True
+        self.paused = False
         self.current_game_speed: GameSpeed | None = None
         self._last_sample = None
         self._prev_mole_state = MoleState.HIDDEN
         self._menu_back_rect: pygame.Rect | None = None
+        self._play_back_rect: pygame.Rect | None = None
 
         self._mole_frames: list = []
         self._hole_sprite = None
@@ -81,6 +85,7 @@ class GameApp:
         self.current_game_speed = speed
         self.input_tracker.reset()
         self.in_menu = False
+        self.paused = False
         self.effects.reset()
         self.feel.reset()
         self.cursor = MagicCursor()
@@ -91,13 +96,35 @@ class GameApp:
     def _return_to_menu(self) -> None:
         """Show the speed selection screen again."""
         self.in_menu = True
+        self.paused = False
         self.current_game_speed = None
         self._last_sample = None
         self._menu_back_rect = None
+        self._play_back_rect = None
         self.input_tracker.reset()
         self.effects.reset()
         self.feel.reset()
         self.cursor = MagicCursor()
+
+    def _toggle_pause(self) -> None:
+        """Space: pause / resume while a round is active (not game over)."""
+        if self.in_menu or self.game.phase == GamePhase.GAME_OVER:
+            return
+        self.paused = not self.paused
+
+    def _restart_same_mode(self) -> None:
+        """R: restart countdown + round at the same speed (stay off main menu)."""
+        if self.in_menu:
+            return
+        speed = self.current_game_speed or self.game.game_speed
+        self.paused = False
+        self.input_tracker.reset()
+        self.effects.reset()
+        self.feel.reset()
+        self.cursor = MagicCursor()
+        self.game.begin_round(speed)
+        self._apply_sprites_to_game()
+        self._prev_mole_state = MoleState.HIDDEN
 
     def _design_mouse_pos(self, event: pygame.event.Event) -> tuple[int, int]:
         """Convert a pygame mouse event position to design-space coordinates."""
@@ -115,11 +142,12 @@ class GameApp:
                 continue
 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                if self.display.fullscreen:
+                if not self.in_menu:
+                    # Instant return to speed menu while in a round / game over.
+                    self._return_to_menu()
+                elif self.display.fullscreen:
                     self.display.set_windowed()
                     self.screen = self.display.screen
-                elif not self.in_menu:
-                    self._return_to_menu()
                 else:
                     self.running = False
                 continue
@@ -132,24 +160,27 @@ class GameApp:
                 continue
 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_r and self.game.phase == GamePhase.GAME_OVER:
-                    self.game.begin_round()
-                    self.input_tracker.hit_gate.reset()
-                    self.effects.reset()
-                    self.feel.reset()
-                    self.cursor = MagicCursor()
-                    self._apply_sprites_to_game()
+                if event.key == pygame.K_SPACE:
+                    self._toggle_pause()
+                elif event.key == pygame.K_r:
+                    self._restart_same_mode()
                 elif event.key == pygame.K_m and self.game.phase == GamePhase.GAME_OVER:
                     self._return_to_menu()
-            elif (
-                event.type == pygame.MOUSEBUTTONDOWN
-                and event.button == 1
-                and self.game.phase == GamePhase.GAME_OVER
-                and self._menu_back_rect is not None
-            ):
-                ox, oy = self.feel.get_offset()
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 design_pos = self._design_mouse_pos(event)
-                if self._menu_back_rect.collidepoint(design_pos[0] - ox, design_pos[1] - oy):
+                ox, oy = self.feel.get_offset()
+                click = (design_pos[0] - ox, design_pos[1] - oy)
+                if (
+                    self.game.phase != GamePhase.GAME_OVER
+                    and self._play_back_rect is not None
+                    and self._play_back_rect.collidepoint(click)
+                ):
+                    self._return_to_menu()
+                elif (
+                    self.game.phase == GamePhase.GAME_OVER
+                    and self._menu_back_rect is not None
+                    and self._menu_back_rect.collidepoint(click)
+                ):
                     self._return_to_menu()
 
     def _update_hover(self) -> None:
@@ -207,12 +238,16 @@ class GameApp:
             draw_tracking_indicator(self.game_surface, self._last_sample.status)
 
         if self.game.phase == GamePhase.GAME_OVER:
-            ox, oy = self.feel.get_offset()
             self._menu_back_rect = draw_game_over(self.game_surface, self.fonts, self.game.score)
+            self._play_back_rect = None
         else:
-            ox, oy = self.feel.get_offset()
             self._menu_back_rect = None
+            self._play_back_rect = draw_in_game_back_button(self.game_surface, self.fonts)
 
+        if self.paused and self.game.phase != GamePhase.GAME_OVER:
+            draw_pause_overlay(self.game_surface, self.fonts)
+
+        ox, oy = self.feel.get_offset()
         self.display.present(self.game_surface, (ox, oy))
 
     def run(self) -> None:
@@ -227,6 +262,14 @@ class GameApp:
                 continue
 
             t_frame = time.perf_counter()
+            had_pending_whack = False
+            t_poll = 0.0
+            t_game = 0.0
+            sample = self._last_sample
+
+            if self.paused:
+                self.render(self.clock.get_fps())
+                continue
 
             t0 = time.perf_counter()
             sample = self.input_tracker.poll()
@@ -267,7 +310,7 @@ class GameApp:
                         f"whack={had_pending_whack} "
                         f"poll={t_poll:.1f}ms game={t_game:.1f}ms render={t_render:.1f}ms "
                         f"total={t_total:.1f}ms particles={len(self.effects.particles)} "
-                        f"cursor={sample.cursor}"
+                        f"cursor={sample.cursor if sample else None}"
                     )
 
         self.input_tracker.release()

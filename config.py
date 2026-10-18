@@ -9,6 +9,8 @@ MODELS_DIR = ASSETS_DIR / "models"
 IMAGES_DIR = ASSETS_DIR / "images"
 MOLE_FRAMES_DIR = IMAGES_DIR / "mole"
 SOUNDS_DIR = ASSETS_DIR / "sounds"
+FONTS_DIR = ASSETS_DIR / "fonts"
+DEVANAGARI_FONT_PATH = FONTS_DIR / "NotoSansDevanagari-Bold.ttf"
 
 # Fixed design resolution — all gameplay, tracking, and UI layout use this space.
 DESIGN_WIDTH = 1280
@@ -58,18 +60,18 @@ COUNTDOWN_SECONDS = 3
 COMBO_WINDOW_MS = 2500
 SCORE_PER_WHACK = 10
 
-# Vice labels shown above each mole when it appears.
+# Vice labels shown above each mole (Hindi / Devanagari — display only).
 VICE_NAMES = (
-    "Ego",
-    "Anger",
-    "Greed",
-    "Jealousy",
-    "Laziness",
-    "Pride",
-    "Envy",
-    "Attachment",
-    "Fear",
-    "Hatred",
+    "अहंकार",   # Ego
+    "क्रोध",    # Anger
+    "लालच",    # Greed
+    "ईर्ष्या",  # Jealousy
+    "आलस्य",   # Laziness
+    "गर्व",    # Pride
+    "ईर्ष्या",  # Envy
+    "मोह",     # Attachment
+    "भय",      # Fear
+    "नफरत",   # Hatred
 )
 
 # --- Branding ---
