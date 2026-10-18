@@ -266,9 +266,12 @@ class Mole:
 
     def _get_vice_font(self) -> pygame.font.Font:
         if self._vice_font_obj is None:
-            # Bundled Devanagari font — works offline on exhibition laptops.
             size = config.UI_FONT_LABEL + 4
             self._vice_font_obj = load_devanagari_font(size)
+
+            # Enable Devanagari text shaping.
+            self._vice_font_obj.set_script("Deva")
+
         return self._vice_font_obj
 
     _VICE_OUTLINE_OFFSETS = (
